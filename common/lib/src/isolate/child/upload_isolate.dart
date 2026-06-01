@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -41,6 +42,20 @@ class HttpUploadTask implements BaseHttpUploadTask {
     required this.mime,
     required this.fileSize,
     required this.device,
+  });
+}
+
+class HttpUploadBatchTask implements BaseHttpUploadTask {
+  final String? remoteSessionId;
+  final Device device;
+  final List<HttpUploadTask> files;
+  final int totalLength;
+
+  HttpUploadBatchTask({
+    required this.remoteSessionId,
+    required this.device,
+    required this.files,
+    required this.totalLength,
   });
 }
 
@@ -89,6 +104,62 @@ Future<void> setupHttpUploadIsolate(
         case HttpUploadTask task:
           uploadTask = task;
           break;
+        case HttpUploadBatchTask batchTask:
+          try {
+            final cancelToken = CustomCancelToken();
+            ref.read(_cancelTokenProvider).putIfAbsent(task.id, () => cancelToken);
+
+            Stream<List<int>> generateBatchStream() async* {
+              for (final file in batchTask.files) {
+                // Yield 36-byte fileId (padded/truncated)
+                final idBytes = utf8.encode(file.fileId);
+                final idBuffer = Uint8List(36);
+                for (int i = 0; i < idBytes.length && i < 36; i++) {
+                  idBuffer[i] = idBytes[i];
+                }
+                yield idBuffer;
+
+                // Yield 8-byte length
+                final lengthBuffer = ByteData(8);
+                lengthBuffer.setInt64(0, file.fileSize, Endian.big);
+                yield lengthBuffer.buffer.asUint8List();
+
+                // Yield file content
+                if (file.filePath != null) {
+                  final Stream<List<int>> fileStream = _uriContentStreamResolver != null && file.filePath!.startsWith('content://')
+                      ? _uriContentStreamResolver!.resolve(Uri.parse(file.filePath!))
+                      : File(file.filePath!).openRead();
+                  yield* fileStream;
+                } else if (file.fileBytes != null) {
+                  yield file.fileBytes!;
+                }
+              }
+            }
+
+            await ref.read(httpUploadProvider).uploadBatch(
+              stream: generateBatchStream(),
+              contentLength: batchTask.totalLength,
+              target: batchTask.device,
+              remoteSessionId: batchTask.remoteSessionId,
+              onSendProgress: (progress) {
+                sendToMain(IsolateTaskStreamResult.event(
+                  id: task.id,
+                  data: progress, // batch progress
+                ));
+              },
+              cancelToken: cancelToken,
+            );
+
+            sendToMain(IsolateTaskStreamResult.done(
+              id: task.id,
+            ));
+          } catch (e) {
+            sendToMain(IsolateTaskStreamResult.error(
+              id: task.id,
+              error: e.toString(),
+            ));
+          }
+          return;
         case HttpUploadCancelTask task:
           final cancelToken = ref.read(_cancelTokenProvider)[task.taskId];
           cancelToken?.cancel();

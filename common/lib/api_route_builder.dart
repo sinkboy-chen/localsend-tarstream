@@ -12,6 +12,7 @@ enum ApiRoute {
   show('show'),
   prepareDownload('prepare-download'),
   download('download'),
+  uploadBatch('upload-batch'),
   ;
 
   const ApiRoute(String path, [String? legacy])

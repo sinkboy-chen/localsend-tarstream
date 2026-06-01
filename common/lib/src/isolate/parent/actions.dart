@@ -178,6 +178,49 @@ class IsolateHttpUploadAction extends ReduxActionWithResult<IsolateController, P
   }
 }
 
+class IsolateHttpUploadBatchAction extends ReduxActionWithResult<IsolateController, ParentIsolateState, IsolateHttpUploadActionResult> {
+  final int isolateIndex;
+  final String? remoteSessionId;
+  final Device device;
+  final List<HttpUploadTask> files;
+  final int totalLength;
+
+  IsolateHttpUploadBatchAction({
+    required this.isolateIndex,
+    required this.remoteSessionId,
+    required this.device,
+    required this.files,
+    required this.totalLength,
+  });
+
+  @override
+  (ParentIsolateState, IsolateHttpUploadActionResult) reduce() {
+    final connection = state.httpUpload[isolateIndex];
+
+    final task = HttpUploadBatchTask(
+      remoteSessionId: remoteSessionId,
+      device: device,
+      files: files,
+      totalLength: totalLength,
+    );
+
+    final taskId = _idProvider.getNextId();
+    final progress = _sendTaskAndListenStream(
+      task: task,
+      connection: connection,
+      taskId: taskId,
+    );
+
+    return (
+      state,
+      IsolateHttpUploadActionResult(
+        taskId: taskId,
+        progress: progress,
+      ),
+    );
+  }
+}
+
 class IsolateHttpUploadCancelAction extends ReduxAction<IsolateController, ParentIsolateState> {
   final int isolateIndex;
   final int taskId;

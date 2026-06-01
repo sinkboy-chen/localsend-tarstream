@@ -12,3 +12,4 @@
 .fvm/
 
 .vscode*
+testing_scripts/testing_data*

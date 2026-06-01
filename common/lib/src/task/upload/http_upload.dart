@@ -40,4 +40,27 @@ class HttpUploadService {
       cancelToken: cancelToken,
     );
   }
+
+  Future<void> uploadBatch({
+    required Stream<List<int>> stream,
+    required int contentLength,
+    required Device target,
+    required String? remoteSessionId,
+    required void Function(double) onSendProgress,
+    required CustomCancelToken cancelToken,
+  }) async {
+    await _client.postStream(
+      uri: ApiRoute.uploadBatch.target(target),
+      query: {
+        if (remoteSessionId != null) 'sessionId': remoteSessionId,
+      },
+      headers: {
+        'Content-Length': contentLength.toString(),
+        'Content-Type': 'application/octet-stream',
+      },
+      stream: stream,
+      onSendProgress: onSendProgress,
+      cancelToken: cancelToken,
+    );
+  }
 }

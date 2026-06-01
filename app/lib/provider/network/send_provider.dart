@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 
+import 'package:common/src/isolate/child/upload_isolate.dart';
+import 'package:common/src/isolate/parent/actions.dart';
 import 'package:common/isolate.dart';
 import 'package:common/model/device.dart';
 import 'package:common/model/dto/file_dto.dart';
@@ -323,20 +325,19 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
 
     final futures = List.generate(concurrency, (index) async {
       while (true) {
-        final file = switch (queue.isEmpty) {
-          true => null,
-          false => queue.removeFirst(),
-        };
+        final batch = <SendingFile>[];
+        while (queue.isNotEmpty && batch.length < 50) {
+          batch.add(queue.removeFirst());
+        }
 
-        if (file == null) {
+        if (batch.isEmpty) {
           break;
         }
 
-        await sendFile(
+        await sendBatch(
           sessionId: sessionId,
           isolateIndex: index,
-          file: file,
-          isRetry: false,
+          files: batch,
         );
       }
     });
@@ -380,6 +381,97 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
   }
 
   final uriContent = UriContent();
+
+  Future<void> sendBatch({
+    required String sessionId,
+    required int isolateIndex,
+    required List<SendingFile> files,
+  }) async {
+    final status = state[sessionId]?.status;
+    const allowedStates = {SessionStatus.sending, SessionStatus.finishedWithErrors};
+    if (status == null || !allowedStates.contains(status)) {
+      return;
+    }
+
+    final remoteSessionId = state[sessionId]!.remoteSessionId;
+    final target = state[sessionId]!.target;
+
+    for (final file in files) {
+      state = state.updateSession(
+        sessionId: sessionId,
+        state: (s) => s?.withFileStatus(file.file.id, FileStatus.sending, null),
+      );
+    }
+
+    final httpTasks = <HttpUploadTask>[];
+    int totalLength = 0;
+    for (final file in files) {
+      if (file.token == null) continue;
+      httpTasks.add(HttpUploadTask(
+        remoteSessionId: remoteSessionId,
+        remoteFileToken: file.token!,
+        fileId: file.file.id,
+        filePath: file.path,
+        fileBytes: file.bytes,
+        mime: file.file.lookupMime(),
+        fileSize: file.file.size,
+        device: target,
+      ));
+      totalLength += 44 + file.file.size;
+    }
+
+    if (httpTasks.isEmpty) return;
+
+    final taskResult = ref.redux(parentIsolateProvider).dispatchTakeResult(
+      IsolateHttpUploadBatchAction(
+        isolateIndex: isolateIndex,
+        remoteSessionId: remoteSessionId,
+        device: target,
+        files: httpTasks,
+        totalLength: totalLength,
+      ),
+    );
+
+    String? fileError;
+    try {
+      state = state.updateSession(
+        sessionId: sessionId,
+        state: (s) => s?.copyWith(
+          sendingTasks: [
+            ...?s.sendingTasks,
+            SendingTask(isolateIndex: isolateIndex, taskId: taskResult.taskId),
+          ],
+        ),
+      );
+
+      await for (final progress in taskResult.progress) {
+        for (final file in files) {
+          ref.notifier(progressProvider).setProgress(sessionId: sessionId, fileId: file.file.id, progress: progress);
+        }
+      }
+
+      for (final file in files) {
+        ref.notifier(progressProvider).setProgress(sessionId: sessionId, fileId: file.file.id, progress: 1);
+      }
+    } catch (e, st) {
+      fileError = e.humanErrorMessage;
+      _logger.warning('Error while sending batch', e, st);
+    } finally {
+      state = state.updateSession(
+        sessionId: sessionId,
+        state: (s) => s?.copyWith(
+          sendingTasks: s.sendingTasks?.where((task) => !(task.isolateIndex == isolateIndex && task.taskId == taskResult.taskId)).toList(),
+        ),
+      );
+    }
+
+    for (final file in files) {
+      state = state.updateSession(
+        sessionId: sessionId,
+        state: (s) => s?.withFileStatus(file.file.id, fileError != null ? FileStatus.failed : FileStatus.finished, fileError),
+      );
+    }
+  }
 
   /// Sends a file.
   /// Returns true, if the next file should be sent.

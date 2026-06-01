@@ -104,6 +104,10 @@ class ReceiveController {
       return await _uploadHandler(request: request, v2: true);
     });
 
+    router.post(ApiRoute.uploadBatch.v2, (HttpRequest request) async {
+      return await _uploadBatchHandler(request: request, v2: true);
+    });
+
     router.post(ApiRoute.cancel.v1, (HttpRequest request) async {
       return await _cancelHandler(request: request, v2: false);
     });
@@ -633,6 +637,104 @@ class ReceiveController {
     return server.getState().session?.files[fileId]?.status == FileStatus.finished
         ? await request.respondJson(200)
         : await request.respondJson(500, message: 'Could not save file. Check receiving device for more information.');
+  }
+
+  Future<void> _uploadBatchHandler({
+    required HttpRequest request,
+    required bool v2,
+  }) async {
+    final receiveState = server.getState().session;
+    if (receiveState == null) {
+      return await request.respondJson(409, message: 'No session');
+    }
+
+    if (request.uri.queryParameters['sessionId'] != receiveState.sessionId) {
+      return await request.respondJson(403, message: 'Invalid session id');
+    }
+
+    try {
+      final stream = request;
+      final buffer = <int>[];
+      
+      await for (final chunk in stream) {
+        buffer.addAll(chunk);
+
+        while (buffer.length >= 44) {
+          // Read File ID (36 bytes)
+          final idBytes = buffer.sublist(0, 36);
+          // find null terminator if padded or just decode
+          final fileId = utf8.decode(idBytes).replaceAll('\x00', '');
+          
+          // Read length (8 bytes)
+          final lengthData = ByteData.view(Uint8List.fromList(buffer.sublist(36, 44)).buffer);
+          final fileLength = lengthData.getInt64(0, Endian.big);
+
+          if (buffer.length >= 44 + fileLength) {
+            // We have the whole file in memory. 
+            // In a real stream, we wouldn't buffer the whole file, but since these are 1KB micro-files, it's totally fine.
+            final payload = buffer.sublist(44, 44 + fileLength);
+            
+            // Process the file
+            final receivingFile = receiveState.files[fileId];
+            if (receivingFile != null) {
+              final fileType = receivingFile.file.fileType;
+              final shouldSaveToGallery = receiveState.saveToGallery && (fileType == FileType.image || fileType == FileType.video);
+              
+              final destinationDirectory = receiveState.destinationDirectory;
+              final fileName = receivingFile.desiredName!;
+              
+              bool savedToGallery = false;
+              String? filePath;
+              (savedToGallery, filePath) = await saveFile(
+                destinationDirectory: destinationDirectory,
+                fileName: fileName,
+                saveToGallery: shouldSaveToGallery,
+                isImage: fileType == FileType.image,
+                stream: Stream.fromIterable([Uint8List.fromList(payload)]),
+                onProgress: (_) {},
+                lastModified: receivingFile.file.metadata?.lastModified,
+                lastAccessed: receivingFile.file.metadata?.lastAccessed,
+                androidSdkInt: server.ref.read(deviceInfoProvider).androidSdkInt,
+                createdDirectories: receiveState.createdDirectories,
+              );
+              
+              server.setState(
+                (oldState) => oldState?.copyWith(
+                  session: oldState.session?.fileFinished(
+                    fileId: fileId,
+                    status: FileStatus.finished,
+                    path: filePath,
+                    savedToGallery: false,
+                    errorMessage: null,
+                  ),
+                ),
+              );
+              
+              server.ref.notifier(progressProvider).setProgress(sessionId: receiveState.sessionId, fileId: fileId, progress: 1);
+            }
+
+            buffer.removeRange(0, 44 + fileLength);
+          } else {
+            break; // need more data
+          }
+        }
+      }
+
+      final session = server.getState().session;
+      if (session != null && session.files.values.map((e) => e.status).isFinishedOrError) {
+        server.setState((s) => s?.copyWith(
+          session: s.session!.copyWith(
+            status: SessionStatus.finished,
+            endTime: DateTime.now().millisecondsSinceEpoch,
+          ),
+        ));
+      }
+      
+      return await request.respondJson(200);
+    } catch (e, st) {
+      _logger.severe('Failed batch upload', e, st);
+      return await request.respondJson(500, message: e.toString());
+    }
   }
 
   Future<void> _cancelHandler({
