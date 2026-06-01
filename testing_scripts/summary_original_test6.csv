@@ -1,0 +1,4 @@
+candidate,file_count,completion_time_s,device_1_name,device_1_completion_time_s,device_2_name,device_2_completion_time_s,throughput_bps,goodput_bps,overhead_ratio_percent,tail_latency_ratio,packet_loss_rate_percent,retransmission_rate_percent,cpu_efficiency_system_s_per_mib,fairness_jain,total_wire_bytes,total_goodput_bytes,total_packets
+localsend,1000,107.722000,huang,107.722000,,,104410.32,100814.78,3.4437,,0.000000,0.000000,0.301638,,11247288,10859970,7177
+localsend,1000,118.775000,huang,118.775000,,,94612.12,91356.03,3.4415,,0.000000,0.000000,0.328769,,11237555,10850813,7161
+localsend,1000,120.272000,huang,120.272000,,,93874.96,90638.05,3.4481,,0.000000,0.000000,0.364700,,11290529,10901219,7211
