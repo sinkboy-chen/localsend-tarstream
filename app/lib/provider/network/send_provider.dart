@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:common/src/isolate/child/upload_isolate.dart';
 import 'package:common/src/isolate/parent/actions.dart';
@@ -314,10 +315,18 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
   }
 
   Future<void> _sendLoop(Ref ref, String sessionId, Device target, Map<String, SendingFile> files) async {
+    final startTime = DateTime.now().millisecondsSinceEpoch;
     state = state.updateSession(
       sessionId: sessionId,
-      state: (s) => s?.copyWith(startTime: DateTime.now().millisecondsSinceEpoch),
+      state: (s) => s?.copyWith(startTime: startTime),
     );
+
+    try {
+      final file = File(r'C:\Users\user\Desktop\localsend-tarstream\testing_scripts\app_timestamps.json');
+      file.writeAsStringSync('{"start": $startTime}');
+    } catch (e) {
+      _logger.warning('Failed to write start timestamp', e);
+    }
 
     final queue = Queue<SendingFile>()..addAll(files.values);
     final concurrency = ref.read(parentIsolateProvider).uploadIsolateCount;
@@ -363,13 +372,26 @@ class SendNotifier extends Notifier<Map<String, SendSessionState>> {
         _logger.info('Transfer finished and session removed.');
       } else {
         // keep session alive when there are errors or currently in foreground
+        final endTime = DateTime.now().millisecondsSinceEpoch;
         state = state.updateSession(
           sessionId: sessionId,
           state: (s) => s?.copyWith(
             status: hasError ? SessionStatus.finishedWithErrors : SessionStatus.finished,
-            endTime: DateTime.now().millisecondsSinceEpoch,
+            endTime: endTime,
           ),
         );
+
+        try {
+          final file = File(r'C:\Users\user\Desktop\localsend-tarstream\testing_scripts\app_timestamps.json');
+          if (file.existsSync()) {
+            final content = file.readAsStringSync();
+            final map = jsonDecode(content);
+            map['end'] = endTime;
+            file.writeAsStringSync(jsonEncode(map));
+          }
+        } catch (e) {
+          _logger.warning('Failed to write end timestamp', e);
+        }
 
         if (hasError) {
           _logger.info('Transfer finished with errors.');
