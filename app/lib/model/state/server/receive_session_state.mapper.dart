@@ -82,6 +82,16 @@ class ReceiveSessionStateMapper extends ClassMapperBase<ReceiveSessionState> {
     StreamController<Map<String, String>?>
   >
   _f$responseHandler = Field('responseHandler', _$responseHandler);
+  static bool _$tarSupported(ReceiveSessionState v) => v.tarSupported;
+  static const Field<ReceiveSessionState, bool> _f$tarSupported = Field(
+    'tarSupported',
+    _$tarSupported,
+  );
+  static String? _$tarToken(ReceiveSessionState v) => v.tarToken;
+  static const Field<ReceiveSessionState, String> _f$tarToken = Field(
+    'tarToken',
+    _$tarToken,
+  );
   static String? _$message(ReceiveSessionState v) => v.message;
   static const Field<ReceiveSessionState, String> _f$message = Field(
     'message',
@@ -110,6 +120,8 @@ class ReceiveSessionStateMapper extends ClassMapperBase<ReceiveSessionState> {
     #saveToGallery: _f$saveToGallery,
     #createdDirectories: _f$createdDirectories,
     #responseHandler: _f$responseHandler,
+    #tarSupported: _f$tarSupported,
+    #tarToken: _f$tarToken,
     #message: _f$message,
     #containsDirectories: _f$containsDirectories,
   };
@@ -128,6 +140,8 @@ class ReceiveSessionStateMapper extends ClassMapperBase<ReceiveSessionState> {
       saveToGallery: data.dec(_f$saveToGallery),
       createdDirectories: data.dec(_f$createdDirectories),
       responseHandler: data.dec(_f$responseHandler),
+      tarSupported: data.dec(_f$tarSupported),
+      tarToken: data.dec(_f$tarToken),
     );
   }
 
@@ -222,6 +236,8 @@ abstract class ReceiveSessionStateCopyWith<
     bool? saveToGallery,
     Set<String>? createdDirectories,
     StreamController<Map<String, String>?>? responseHandler,
+    bool? tarSupported,
+    String? tarToken,
   });
   ReceiveSessionStateCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
     Then<$Out2, $R2> t,
@@ -265,6 +281,8 @@ class _ReceiveSessionStateCopyWithImpl<$R, $Out>
     bool? saveToGallery,
     Set<String>? createdDirectories,
     Object? responseHandler = $none,
+    bool? tarSupported,
+    Object? tarToken = $none,
   }) => $apply(
     FieldCopyWithData({
       if (sessionId != null) #sessionId: sessionId,
@@ -280,6 +298,8 @@ class _ReceiveSessionStateCopyWithImpl<$R, $Out>
       if (saveToGallery != null) #saveToGallery: saveToGallery,
       if (createdDirectories != null) #createdDirectories: createdDirectories,
       if (responseHandler != $none) #responseHandler: responseHandler,
+      if (tarSupported != null) #tarSupported: tarSupported,
+      if (tarToken != $none) #tarToken: tarToken,
     }),
   );
   @override
@@ -302,6 +322,8 @@ class _ReceiveSessionStateCopyWithImpl<$R, $Out>
       or: $value.createdDirectories,
     ),
     responseHandler: data.get(#responseHandler, or: $value.responseHandler),
+    tarSupported: data.get(#tarSupported, or: $value.tarSupported),
+    tarToken: data.get(#tarToken, or: $value.tarToken),
   );
 
   @override

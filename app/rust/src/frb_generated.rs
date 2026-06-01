@@ -1794,11 +1794,14 @@ const _: fn() = || {
         let _: crate::api::model::RegisterDto = PrepareUploadRequestDto.info;
         let _: std::collections::HashMap<String, crate::api::model::FileDto> =
             PrepareUploadRequestDto.files;
+        let _: bool = PrepareUploadRequestDto.tar_supported;
     }
     {
         let PrepareUploadResponseDto = None::<crate::api::model::PrepareUploadResponseDto>.unwrap();
         let _: String = PrepareUploadResponseDto.session_id;
         let _: std::collections::HashMap<String, String> = PrepareUploadResponseDto.files;
+        let _: bool = PrepareUploadResponseDto.tar_supported;
+        let _: Option<String> = PrepareUploadResponseDto.tar_token;
     }
     {
         let PrepareUploadResult = None::<crate::api::http::PrepareUploadResult>.unwrap();
@@ -2518,9 +2521,11 @@ impl SseDecode for crate::api::model::PrepareUploadRequestDto {
             <std::collections::HashMap<String, crate::api::model::FileDto>>::sse_decode(
                 deserializer,
             );
+        let mut var_tarSupported = <bool>::sse_decode(deserializer);
         return crate::api::model::PrepareUploadRequestDto {
             info: var_info,
             files: var_files,
+            tar_supported: var_tarSupported,
         };
     }
 }
@@ -2530,9 +2535,13 @@ impl SseDecode for crate::api::model::PrepareUploadResponseDto {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_sessionId = <String>::sse_decode(deserializer);
         let mut var_files = <std::collections::HashMap<String, String>>::sse_decode(deserializer);
+        let mut var_tarSupported = <bool>::sse_decode(deserializer);
+        let mut var_tarToken = <Option<String>>::sse_decode(deserializer);
         return crate::api::model::PrepareUploadResponseDto {
             session_id: var_sessionId,
             files: var_files,
+            tar_supported: var_tarSupported,
+            tar_token: var_tarToken,
         };
     }
 }
@@ -3357,6 +3366,7 @@ impl flutter_rust_bridge::IntoDart for FrbWrapper<crate::api::model::PrepareUplo
         [
             self.0.info.into_into_dart().into_dart(),
             self.0.files.into_into_dart().into_dart(),
+            self.0.tar_supported.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3378,6 +3388,8 @@ impl flutter_rust_bridge::IntoDart for FrbWrapper<crate::api::model::PrepareUplo
         [
             self.0.session_id.into_into_dart().into_dart(),
             self.0.files.into_into_dart().into_dart(),
+            self.0.tar_supported.into_into_dart().into_dart(),
+            self.0.tar_token.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4225,6 +4237,7 @@ impl SseEncode for crate::api::model::PrepareUploadRequestDto {
         <std::collections::HashMap<String, crate::api::model::FileDto>>::sse_encode(
             self.files, serializer,
         );
+        <bool>::sse_encode(self.tar_supported, serializer);
     }
 }
 
@@ -4233,6 +4246,8 @@ impl SseEncode for crate::api::model::PrepareUploadResponseDto {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <String>::sse_encode(self.session_id, serializer);
         <std::collections::HashMap<String, String>>::sse_encode(self.files, serializer);
+        <bool>::sse_encode(self.tar_supported, serializer);
+        <Option<String>>::sse_encode(self.tar_token, serializer);
     }
 }
 

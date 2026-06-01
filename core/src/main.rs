@@ -206,6 +206,7 @@ async fn client_test() -> Result<()> {
             map.insert(id, file);
             map
         },
+        tar_supported: false,
     };
 
     let prepare_upload_response = client

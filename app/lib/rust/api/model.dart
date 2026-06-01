@@ -81,14 +81,16 @@ class FileMetadata {
 class PrepareUploadRequestDto {
   final RegisterDto info;
   final Map<String, FileDto> files;
+  final bool tarSupported;
 
   const PrepareUploadRequestDto({
     required this.info,
     required this.files,
+    required this.tarSupported,
   });
 
   @override
-  int get hashCode => info.hashCode ^ files.hashCode;
+  int get hashCode => info.hashCode ^ files.hashCode ^ tarSupported.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -96,20 +98,29 @@ class PrepareUploadRequestDto {
       other is PrepareUploadRequestDto &&
           runtimeType == other.runtimeType &&
           info == other.info &&
-          files == other.files;
+          files == other.files &&
+          tarSupported == other.tarSupported;
 }
 
 class PrepareUploadResponseDto {
   final String sessionId;
   final Map<String, String> files;
+  final bool tarSupported;
+  final String? tarToken;
 
   const PrepareUploadResponseDto({
     required this.sessionId,
     required this.files,
+    required this.tarSupported,
+    this.tarToken,
   });
 
   @override
-  int get hashCode => sessionId.hashCode ^ files.hashCode;
+  int get hashCode =>
+      sessionId.hashCode ^
+      files.hashCode ^
+      tarSupported.hashCode ^
+      tarToken.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -117,7 +128,9 @@ class PrepareUploadResponseDto {
       other is PrepareUploadResponseDto &&
           runtimeType == other.runtimeType &&
           sessionId == other.sessionId &&
-          files == other.files;
+          files == other.files &&
+          tarSupported == other.tarSupported &&
+          tarToken == other.tarToken;
 }
 
 enum ProtocolType {

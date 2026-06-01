@@ -113,6 +113,8 @@ pub struct RegisterResponseDto {
 pub struct PrepareUploadRequestDto {
     pub info: RegisterDto,
     pub files: HashMap<String, FileDto>,
+    #[serde(default)]
+    pub tar_supported: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,6 +122,10 @@ pub struct PrepareUploadRequestDto {
 pub struct PrepareUploadResponseDto {
     pub session_id: String,
     pub files: HashMap<String, String>,
+    #[serde(default)]
+    pub tar_supported: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tar_token: Option<String>,
 }
 
 impl From<PrepareUploadRequestDto> for PrepareUploadRequestDtoV2 {
@@ -127,6 +133,7 @@ impl From<PrepareUploadRequestDto> for PrepareUploadRequestDtoV2 {
         PrepareUploadRequestDtoV2 {
             info: v3.info.into(),
             files: v3.files,
+            tar_supported: v3.tar_supported,
         }
     }
 }
@@ -141,6 +148,8 @@ impl From<PrepareUploadResponseDtoV2> for PrepareUploadResponseDto {
         PrepareUploadResponseDto {
             session_id: v2.session_id,
             files: v2.files,
+            tar_supported: v2.tar_supported,
+            tar_token: v2.tar_token,
         }
     }
 }

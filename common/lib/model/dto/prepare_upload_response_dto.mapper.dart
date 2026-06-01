@@ -24,15 +24,25 @@ class PrepareUploadResponseDtoMapper extends ClassMapperBase<PrepareUploadRespon
   static const Field<PrepareUploadResponseDto, String> _f$sessionId = Field('sessionId', _$sessionId);
   static Map<String, String> _$files(PrepareUploadResponseDto v) => v.files;
   static const Field<PrepareUploadResponseDto, Map<String, String>> _f$files = Field('files', _$files);
+  static bool? _$tarSupported(PrepareUploadResponseDto v) => v.tarSupported;
+  static const Field<PrepareUploadResponseDto, bool> _f$tarSupported = Field('tarSupported', _$tarSupported);
+  static String? _$tarToken(PrepareUploadResponseDto v) => v.tarToken;
+  static const Field<PrepareUploadResponseDto, String> _f$tarToken = Field('tarToken', _$tarToken);
 
   @override
   final MappableFields<PrepareUploadResponseDto> fields = const {
     #sessionId: _f$sessionId,
     #files: _f$files,
+    #tarSupported: _f$tarSupported,
+    #tarToken: _f$tarToken,
   };
 
   static PrepareUploadResponseDto _instantiate(DecodingData data) {
-    return PrepareUploadResponseDto(sessionId: data.dec(_f$sessionId), files: data.dec(_f$files));
+    return PrepareUploadResponseDto(
+        sessionId: data.dec(_f$sessionId),
+        files: data.dec(_f$files),
+        tarSupported: data.dec(_f$tarSupported),
+        tarToken: data.dec(_f$tarToken));
   }
 
   @override
@@ -81,7 +91,7 @@ extension PrepareUploadResponseDtoValueCopy<$R, $Out> on ObjectCopyWith<$R, Prep
 
 abstract class PrepareUploadResponseDtoCopyWith<$R, $In extends PrepareUploadResponseDto, $Out> implements ClassCopyWith<$R, $In, $Out> {
   MapCopyWith<$R, String, String, ObjectCopyWith<$R, String, String>> get files;
-  $R call({String? sessionId, Map<String, String>? files});
+  $R call({String? sessionId, Map<String, String>? files, bool? tarSupported, String? tarToken});
   PrepareUploadResponseDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
 
@@ -95,11 +105,20 @@ class _PrepareUploadResponseDtoCopyWithImpl<$R, $Out> extends ClassCopyWithBase<
   MapCopyWith<$R, String, String, ObjectCopyWith<$R, String, String>> get files =>
       MapCopyWith($value.files, (v, t) => ObjectCopyWith(v, $identity, t), (v) => call(files: v));
   @override
-  $R call({String? sessionId, Map<String, String>? files}) =>
-      $apply(FieldCopyWithData({if (sessionId != null) #sessionId: sessionId, if (files != null) #files: files}));
+    $R call({String? sessionId, Map<String, String>? files, bool? tarSupported, String? tarToken}) =>
+      $apply(FieldCopyWithData({
+      if (sessionId != null) #sessionId: sessionId,
+      if (files != null) #files: files,
+      if (tarSupported != null) #tarSupported: tarSupported,
+      if (tarToken != null) #tarToken: tarToken,
+      }));
   @override
   PrepareUploadResponseDto $make(CopyWithData data) =>
-      PrepareUploadResponseDto(sessionId: data.get(#sessionId, or: $value.sessionId), files: data.get(#files, or: $value.files));
+      PrepareUploadResponseDto(
+        sessionId: data.get(#sessionId, or: $value.sessionId),
+        files: data.get(#files, or: $value.files),
+        tarSupported: data.get(#tarSupported, or: $value.tarSupported),
+        tarToken: data.get(#tarToken, or: $value.tarToken));
 
   @override
   PrepareUploadResponseDtoCopyWith<$R2, PrepareUploadResponseDto, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t) =>

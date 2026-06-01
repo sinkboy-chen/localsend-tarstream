@@ -138,6 +138,10 @@ pub struct PrepareUploadRequestDtoV2 {
 
     /// Map of file ID to file metadata.
     pub files: HashMap<String, FileDto>,
+
+    /// Whether the sender supports TAR streaming uploads.
+    #[serde(default)]
+    pub tar_supported: bool,
 }
 
 /// Prepare upload response DTO for v2.1 protocol.
@@ -152,6 +156,14 @@ pub struct PrepareUploadResponseDtoV2 {
     /// Map of file ID to file token.
     /// Only contains files that were accepted by the receiver.
     pub files: HashMap<String, String>,
+
+    /// Whether the receiver accepts TAR streaming uploads.
+    #[serde(default)]
+    pub tar_supported: bool,
+
+    /// Token for TAR streaming uploads (valid when tar_supported is true).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tar_token: Option<String>,
 }
 
 pub struct PrepareUploadResultV2 {

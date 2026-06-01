@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
 import 'package:common/api_route_builder.dart';
@@ -49,6 +50,7 @@ import 'package:logging/logging.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:refena_flutter/refena_flutter.dart';
 import 'package:routerino/routerino.dart';
+import 'package:tar/tar.dart';
 import 'package:uuid/uuid.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -255,6 +257,7 @@ class ReceiveController {
           saveToGallery: checkPlatformWithGallery() && settings.saveToGallery && dto.files.values.every((f) => !f.fileName.contains('/')),
           createdDirectories: {},
           responseHandler: streamController,
+          tarSupported: dto.tarSupported == true,
         ),
       ),
     );
@@ -363,12 +366,16 @@ class ReceiveController {
       return await request.respondJson(204);
     }
 
+    String? tarToken;
     server.setState(
       (oldState) {
         final receiveState = oldState!.session!;
+        final useTar = receiveState.tarSupported;
+        tarToken = useTar ? _uuid.v4() : null;
         return oldState.copyWith(
           session: receiveState.copyWith(
             status: SessionStatus.sending,
+            tarToken: tarToken,
             files: Map.fromEntries(
               receiveState.files.values.map((entry) {
                 final desiredName = selection![entry.file.id];
@@ -377,7 +384,7 @@ class ReceiveController {
                   ReceivingFile(
                     file: entry.file,
                     status: desiredName != null ? FileStatus.queue : FileStatus.skipped,
-                    token: desiredName != null ? _uuid.v4() : null,
+                    token: useTar ? null : (desiredName != null ? _uuid.v4() : null),
                     desiredName: desiredName,
                     path: null,
                     savedToGallery: false,
@@ -403,9 +410,15 @@ class ReceiveController {
       );
     }
 
-    final files = {
-      for (final file in server.getState().session!.files.values.where((f) => f.token != null)) file.file.id: file.token,
-    };
+    final useTar = server.getState().session?.tarToken != null && server.getState().session?.tarSupported == true;
+    final files = useTar
+        ? {
+            for (final file in server.getState().session!.files.values.where((f) => f.status != FileStatus.skipped))
+              file.file.id: tarToken ?? ''
+          }
+        : {
+            for (final file in server.getState().session!.files.values.where((f) => f.token != null)) file.file.id: file.token,
+          };
 
     if (checkPlatform([TargetPlatform.android, TargetPlatform.iOS])) {
       if (checkPlatform([TargetPlatform.android]) && !server.getState().session!.destinationDirectory.startsWith('/storage/emulated/0/Download')) {
@@ -430,6 +443,8 @@ class ReceiveController {
         body: PrepareUploadResponseDto(
           sessionId: sessionId,
           files: files.cast(),
+          tarSupported: useTar,
+          tarToken: tarToken,
         ).toJson(),
       );
     }
@@ -457,12 +472,16 @@ class ReceiveController {
       return await request.respondJson(409, message: 'Recipient is in wrong state');
     }
 
+    final isTar = request.uri.queryParameters['tar'] == 'true';
     final fileId = request.uri.queryParameters['fileId'];
     final token = request.uri.queryParameters['token'];
     final sessionId = request.uri.queryParameters['sessionId'];
-    if (fileId == null || token == null || (v2 && sessionId == null)) {
+    if (isTar && !v2) {
+      return await request.respondJson(400, message: 'TAR upload requires v2');
+    }
+    if (token == null || (v2 && sessionId == null) || (!isTar && fileId == null)) {
       // reject because of missing parameters
-      _logger.warning('Missing parameters: fileId=$fileId, token=$token, sessionId=$sessionId');
+      _logger.warning('Missing parameters: fileId=$fileId, token=$token, sessionId=$sessionId, tar=$isTar');
       return await request.respondJson(400, message: 'Missing parameters');
     }
 
@@ -470,6 +489,10 @@ class ReceiveController {
       // reject because of wrong session id
       _logger.warning('Wrong session id: $sessionId (expected: ${receiveState.sessionId})');
       return await request.respondJson(403, message: 'Invalid session id');
+    }
+
+    if (isTar) {
+      return await _handleTarUpload(request: request, receiveState: receiveState, token: token);
     }
 
     final receivingFile = receiveState.files[fileId];
@@ -485,7 +508,7 @@ class ReceiveController {
         session: receiveState.copyWith(
           files: {...receiveState.files}
             ..update(
-              fileId,
+              fileId!,
               (_) => receivingFile.copyWith(
                 status: FileStatus.sending,
               ),
@@ -515,7 +538,7 @@ class ReceiveController {
                 .notifier(progressProvider)
                 .setProgress(
                   sessionId: receiveState.sessionId,
-                  fileId: fileId,
+                  fileId: fileId!,
                   progress: savedBytes / receivingFile.file.size,
                 );
           }
@@ -531,7 +554,7 @@ class ReceiveController {
       server.setState(
         (oldState) => oldState?.copyWith(
           session: oldState.session?.fileFinished(
-            fileId: fileId,
+            fileId: fileId!,
             status: FileStatus.finished,
             path: filePath,
             savedToGallery: savedToGallery,
@@ -545,7 +568,7 @@ class ReceiveController {
           .redux(receiveHistoryProvider)
           .dispatchAsync(
             AddHistoryEntryAction(
-              entryId: fileId,
+              entryId: fileId!,
               fileName: receivingFile.desiredName!,
               fileType: receivingFile.file.fileType,
               path: filePath,
@@ -562,7 +585,7 @@ class ReceiveController {
       server.setState(
         (oldState) => oldState?.copyWith(
           session: oldState.session?.fileFinished(
-            fileId: fileId,
+            fileId: fileId!,
             status: FileStatus.failed,
             path: null,
             savedToGallery: false,
@@ -577,7 +600,7 @@ class ReceiveController {
         .notifier(progressProvider)
         .setProgress(
           sessionId: receiveState.sessionId,
-          fileId: fileId,
+          fileId: fileId!,
           progress: 1,
         );
 
@@ -633,6 +656,208 @@ class ReceiveController {
     return server.getState().session?.files[fileId]?.status == FileStatus.finished
         ? await request.respondJson(200)
         : await request.respondJson(500, message: 'Could not save file. Check receiving device for more information.');
+  }
+
+  Future<void> _handleTarUpload({
+    required HttpRequest request,
+    required ReceiveSessionState receiveState,
+    required String token,
+  }) async {
+    if (!receiveState.tarSupported || receiveState.tarToken == null) {
+      return await request.respondJson(403, message: 'TAR upload not supported');
+    }
+    if (token != receiveState.tarToken) {
+      return await request.respondJson(403, message: 'Invalid token');
+    }
+
+    server.setState(
+      (oldState) => oldState?.copyWith(
+        session: receiveState.copyWith(
+          startTime: receiveState.startTime ?? DateTime.now().millisecondsSinceEpoch,
+          status: SessionStatus.sending,
+        ),
+      ),
+    );
+
+    final reader = TarReader(request);
+    String? lastFilePath;
+    FileType? lastFileType;
+    bool lastSavedToGallery = false;
+    var hasError = false;
+
+    try {
+      while (await reader.moveNext()) {
+        final entry = reader.current;
+        final fileId = entry.header.name;
+        final session = server.getState().session;
+        if (session == null) {
+          return await request.respondJson(500, message: 'Server is in invalid state');
+        }
+
+        final receivingFile = session.files[fileId];
+        if (receivingFile == null || receivingFile.status == FileStatus.skipped) {
+          _logger.warning('Unexpected TAR entry: $fileId');
+          hasError = true;
+          await entry.contents.drain();
+          continue;
+        }
+
+        server.setState(
+          (oldState) => oldState?.copyWith(
+            session: session.copyWith(
+              files: {...session.files}
+                ..update(
+                  fileId,
+                  (_) => receivingFile.copyWith(status: FileStatus.sending),
+                ),
+            ),
+          ),
+        );
+
+        final fileType = receivingFile.file.fileType;
+        final shouldSaveToGallery = session.saveToGallery && (fileType == FileType.image || fileType == FileType.video);
+
+        try {
+          _logger.info('Saving ${receivingFile.file.fileName} from TAR');
+          final stream = entry.contents.map((chunk) => Uint8List.fromList(chunk));
+          (lastSavedToGallery, lastFilePath) = await saveFile(
+            destinationDirectory: session.destinationDirectory,
+            fileName: receivingFile.desiredName ?? receivingFile.file.fileName,
+            saveToGallery: shouldSaveToGallery,
+            isImage: fileType == FileType.image,
+            stream: stream,
+            onProgress: (savedBytes) {
+              if (receivingFile.file.size != 0) {
+                server.ref
+                    .notifier(progressProvider)
+                    .setProgress(sessionId: session.sessionId, fileId: fileId, progress: savedBytes / receivingFile.file.size);
+              }
+            },
+            lastModified: receivingFile.file.metadata?.lastModified,
+            lastAccessed: receivingFile.file.metadata?.lastAccessed,
+            androidSdkInt: server.ref.read(deviceInfoProvider).androidSdkInt,
+            createdDirectories: session.createdDirectories,
+          );
+
+          lastFileType = fileType;
+
+          if (server.getState().session == null) {
+            return await request.respondJson(500, message: 'Server is in invalid state');
+          }
+
+          server.setState(
+            (oldState) => oldState?.copyWith(
+              session: oldState.session?.fileFinished(
+                fileId: fileId,
+                status: FileStatus.finished,
+                path: lastFilePath,
+                savedToGallery: lastSavedToGallery,
+                errorMessage: null,
+              ),
+            ),
+          );
+
+          await server.ref
+              .redux(receiveHistoryProvider)
+              .dispatchAsync(
+                AddHistoryEntryAction(
+                  entryId: fileId,
+                  fileName: receivingFile.desiredName ?? receivingFile.file.fileName,
+                  fileType: receivingFile.file.fileType,
+                  path: lastFilePath,
+                  savedToGallery: lastSavedToGallery,
+                  isMessage: false,
+                  fileSize: receivingFile.file.size,
+                  senderAlias: session.senderAlias,
+                  timestamp: DateTime.now().toUtc(),
+                ),
+              );
+
+          server.ref
+              .notifier(progressProvider)
+              .setProgress(sessionId: session.sessionId, fileId: fileId, progress: 1);
+        } catch (e, st) {
+          hasError = true;
+          server.setState(
+            (oldState) => oldState?.copyWith(
+              session: oldState.session?.fileFinished(
+                fileId: fileId,
+                status: FileStatus.failed,
+                path: null,
+                savedToGallery: false,
+                errorMessage: e.toString(),
+              ),
+            ),
+          );
+          _logger.severe('Failed to save TAR entry', e, st);
+        }
+      }
+    } finally {
+      await reader.cancel();
+    }
+
+    final session = server.getState().session;
+    if (session == null) {
+      return await request.respondJson(500, message: 'Server is in invalid state');
+    }
+
+    final pendingFiles = session.files.values.where((f) => f.status == FileStatus.queue || f.status == FileStatus.sending).toList();
+    if (pendingFiles.isNotEmpty) {
+      hasError = true;
+      server.setState(
+        (oldState) => oldState?.copyWith(
+          session: oldState.session?.copyWith(
+            files: oldState.session!.files.map((key, value) {
+              if (value.status == FileStatus.queue || value.status == FileStatus.sending) {
+                return MapEntry(key, value.copyWith(status: FileStatus.failed, errorMessage: 'Missing TAR entry'));
+              }
+              return MapEntry(key, value);
+            }),
+          ),
+        ),
+      );
+    }
+
+    hasError = hasError || session.files.values.any((f) => f.status == FileStatus.failed);
+    server.setState(
+      (oldState) => oldState?.copyWith(
+        session: oldState.session!.copyWith(
+          status: hasError ? SessionStatus.finishedWithErrors : SessionStatus.finished,
+          endTime: DateTime.now().millisecondsSinceEpoch,
+        ),
+      ),
+    );
+
+    final settings = server.ref.read(settingsProvider);
+    bool quickSave = settings.quickSave && server.getState().session?.message == null;
+    final quickSaveFromFavorites = settings.quickSaveFromFavorites && server.getState().session?.message == null;
+    if (quickSaveFromFavorites) {
+      final bool isFavorite = server.ref.read(favoritesProvider).any((e) => e.fingerprint == session.sender.fingerprint);
+      if (isFavorite) {
+        quickSave = true;
+      }
+    }
+    if (quickSave) {
+      Future.delayed(Duration.zero, () {
+        closeSession();
+        _logger.info('Closing session');
+
+        Routerino.context.pushRootImmediately(() => const HomePage(initialTab: HomeTab.receive, appStart: false));
+
+        if (lastFilePath != null && lastFilePath.isNotEmpty && lastFileType != null) {
+          OpenFileDialog.open(
+            Routerino.context,
+            filePath: lastFilePath,
+            fileType: lastFileType!,
+            openGallery: lastSavedToGallery,
+          );
+        }
+      });
+    }
+
+    _logger.info('Received TAR stream.');
+
+    return await request.respondJson(200);
   }
 
   Future<void> _cancelHandler({

@@ -25,15 +25,21 @@ class PrepareUploadRequestDtoMapper extends ClassMapperBase<PrepareUploadRequest
   static const Field<PrepareUploadRequestDto, InfoRegisterDto> _f$info = Field('info', _$info);
   static Map<String, FileDto> _$files(PrepareUploadRequestDto v) => v.files;
   static const Field<PrepareUploadRequestDto, Map<String, FileDto>> _f$files = Field('files', _$files);
+  static bool? _$tarSupported(PrepareUploadRequestDto v) => v.tarSupported;
+  static const Field<PrepareUploadRequestDto, bool> _f$tarSupported = Field('tarSupported', _$tarSupported);
 
   @override
   final MappableFields<PrepareUploadRequestDto> fields = const {
     #info: _f$info,
     #files: _f$files,
+    #tarSupported: _f$tarSupported,
   };
 
   static PrepareUploadRequestDto _instantiate(DecodingData data) {
-    return PrepareUploadRequestDto(info: data.dec(_f$info), files: data.dec(_f$files));
+    return PrepareUploadRequestDto(
+        info: data.dec(_f$info),
+        files: data.dec(_f$files),
+        tarSupported: data.dec(_f$tarSupported));
   }
 
   @override
@@ -83,7 +89,7 @@ extension PrepareUploadRequestDtoValueCopy<$R, $Out> on ObjectCopyWith<$R, Prepa
 abstract class PrepareUploadRequestDtoCopyWith<$R, $In extends PrepareUploadRequestDto, $Out> implements ClassCopyWith<$R, $In, $Out> {
   InfoRegisterDtoCopyWith<$R, InfoRegisterDto, InfoRegisterDto> get info;
   MapCopyWith<$R, String, FileDto, ObjectCopyWith<$R, FileDto, FileDto>> get files;
-  $R call({InfoRegisterDto? info, Map<String, FileDto>? files});
+  $R call({InfoRegisterDto? info, Map<String, FileDto>? files, bool? tarSupported});
   PrepareUploadRequestDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
 
@@ -99,11 +105,18 @@ class _PrepareUploadRequestDtoCopyWithImpl<$R, $Out> extends ClassCopyWithBase<$
   MapCopyWith<$R, String, FileDto, ObjectCopyWith<$R, FileDto, FileDto>> get files =>
       MapCopyWith($value.files, (v, t) => ObjectCopyWith(v, $identity, t), (v) => call(files: v));
   @override
-  $R call({InfoRegisterDto? info, Map<String, FileDto>? files}) =>
-      $apply(FieldCopyWithData({if (info != null) #info: info, if (files != null) #files: files}));
+    $R call({InfoRegisterDto? info, Map<String, FileDto>? files, bool? tarSupported}) =>
+      $apply(FieldCopyWithData({
+      if (info != null) #info: info,
+      if (files != null) #files: files,
+      if (tarSupported != null) #tarSupported: tarSupported,
+      }));
   @override
   PrepareUploadRequestDto $make(CopyWithData data) =>
-      PrepareUploadRequestDto(info: data.get(#info, or: $value.info), files: data.get(#files, or: $value.files));
+      PrepareUploadRequestDto(
+        info: data.get(#info, or: $value.info),
+        files: data.get(#files, or: $value.files),
+        tarSupported: data.get(#tarSupported, or: $value.tarSupported));
 
   @override
   PrepareUploadRequestDtoCopyWith<$R2, PrepareUploadRequestDto, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t) =>

@@ -64,10 +64,13 @@ pub struct _FileMetadata {
 pub struct _PrepareUploadRequestDto {
     pub info: RegisterDto,
     pub files: HashMap<String, FileDto>,
+    pub tar_supported: bool,
 }
 
 #[frb(mirror(PrepareUploadResponseDto))]
 pub struct _PrepareUploadResponseDto {
     pub session_id: String,
     pub files: HashMap<String, String>,
+    pub tar_supported: bool,
+    pub tar_token: Option<String>,
 }

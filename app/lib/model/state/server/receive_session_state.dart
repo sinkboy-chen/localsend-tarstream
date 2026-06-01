@@ -45,6 +45,12 @@ class ReceiveSessionState with ReceiveSessionStateMappable implements SessionSta
 
   final StreamController<Map<String, String>?>? responseHandler;
 
+  /// Whether this session uses TAR streaming uploads.
+  final bool tarSupported;
+
+  /// Token used to authorize TAR streaming uploads.
+  final String? tarToken;
+
   const ReceiveSessionState({
     required this.sessionId,
     required this.status,
@@ -58,6 +64,8 @@ class ReceiveSessionState with ReceiveSessionStateMappable implements SessionSta
     required this.saveToGallery,
     required this.createdDirectories,
     required this.responseHandler,
+    this.tarSupported = false,
+    this.tarToken,
   });
 
   /// Returns the message of this request if this is a "message request".

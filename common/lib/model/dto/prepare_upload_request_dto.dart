@@ -8,10 +8,12 @@ part 'prepare_upload_request_dto.mapper.dart';
 class PrepareUploadRequestDto with PrepareUploadRequestDtoMappable {
   final InfoRegisterDto info;
   final Map<String, FileDto> files;
+  final bool? tarSupported;
 
   const PrepareUploadRequestDto({
     required this.info,
     required this.files,
+    this.tarSupported,
   });
 
   static const fromJson = PrepareUploadRequestDtoMapper.fromJson;
