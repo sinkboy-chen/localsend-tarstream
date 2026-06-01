@@ -1,0 +1,14 @@
+{
+  "candidate": "localsend",
+  "my_ip": "192.168.244.93",
+  "receiver_ips": [
+    "192.168.244.189"
+  ],
+  "receiver_names": [
+    "huang"
+  ],
+  "tshark_path": "C:/Program Files/Wireshark/tshark.exe",
+  "send_mode": "manual",
+  "localsend_port": 53317,
+  "interface": "Wi-Fi"
+}
