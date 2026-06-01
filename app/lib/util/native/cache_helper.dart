@@ -31,8 +31,8 @@ Future<void> _clear(RootIsolateToken token) async {
   initLogger(Level.ALL);
   BackgroundIsolateBinaryMessenger.ensureInitialized(token);
 
-  final futures = (
-    FilePicker.platform.clearTemporaryFiles(),
+  final futures = Future.wait([
+    FilePicker.clearTemporaryFiles(),
     PhotoManager.clearFileCache(),
     checkPlatform([TargetPlatform.iOS, TargetPlatform.android])
         ? getTemporaryDirectory().then((cacheDir) {
@@ -67,7 +67,7 @@ Future<void> _clear(RootIsolateToken token) async {
                 }
               })
         : Future.value(),
-  ).wait;
+  ]);
 
   try {
     await futures;

@@ -36,13 +36,14 @@ Terminal=false
         await setLaunchAtLoginMinimized(startHidden);
         return true;
       case TargetPlatform.windows:
-        _getWindowsRegistryKey().createValue(
-          RegistryValue(
+        final key = _getWindowsRegistryKey();
+        key.createValue(
+          RegistryValue.string(
             _windowsRegistryKeyValue,
-            RegistryValueType.string,
             '"${Platform.resolvedExecutable}"${startHidden ? ' $startHiddenFlag' : ''}',
           ),
         );
+        key.close();
         return true;
       default:
         return false;
@@ -64,7 +65,9 @@ Future<bool> disableAutoStart() async {
         await setLaunchAtLogin(false);
         break;
       case TargetPlatform.windows:
-        _getWindowsRegistryKey().deleteValue(_windowsRegistryKeyValue);
+        final key = _getWindowsRegistryKey();
+        key.deleteValue(_windowsRegistryKeyValue);
+        key.close();
         break;
       default:
         break;
@@ -84,7 +87,11 @@ Future<bool> isAutoStartEnabled() async {
     case TargetPlatform.macOS:
       return await getLaunchAtLogin();
     case TargetPlatform.windows:
-      return _getWindowsRegistryKey().getValueAsString(_windowsRegistryKeyValue)?.contains(Platform.resolvedExecutable) ?? false;
+      final key = _getWindowsRegistryKey();
+      final result =
+          key.getStringValue(_windowsRegistryKeyValue)?.contains(Platform.resolvedExecutable) ?? false;
+      key.close();
+      return result;
     default:
       return false;
   }
@@ -102,7 +109,10 @@ Future<bool> isAutoStartHidden() async {
     case TargetPlatform.macOS:
       return await getLaunchAtLoginMinimized();
     case TargetPlatform.windows:
-      return _getWindowsRegistryKey().getValueAsString(_windowsRegistryKeyValue)?.contains(startHiddenFlag) ?? false;
+      final key = _getWindowsRegistryKey();
+      final result = key.getStringValue(_windowsRegistryKeyValue)?.contains(startHiddenFlag) ?? false;
+      key.close();
+      return result;
     default:
       return false;
   }
